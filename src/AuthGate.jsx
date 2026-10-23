@@ -254,20 +254,23 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!supabase) { setAuthReady(true); return undefined; }
     let alive = true;
+    let receivedAuthEvent = false;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!alive) return;
+      receivedAuthEvent = true;
       setSession(nextSession);
       if (event === 'PASSWORD_RECOVERY') setMode('recovery');
       if (event === 'SIGNED_OUT') { setMode('login'); setAuthError(''); }
     });
     supabase.auth.getSession().then(({ data, error: sessionError }) => {
       if (!alive) return;
-      setSession(data.session);
-      if (sessionError) setAuthError(authErrorMessage(sessionError, 'login'));
+      // Do not let an older session snapshot overwrite a newer auth event.
+      if (!receivedAuthEvent) setSession(data.session);
+      if (sessionError && !receivedAuthEvent) setAuthError(authErrorMessage(sessionError, 'login'));
       setAuthReady(true);
     }).catch(error => {
       if (!alive) return;
-      setAuthError(authErrorMessage(error, 'login'));
+      if (!receivedAuthEvent) setAuthError(authErrorMessage(error, 'login'));
       setAuthReady(true);
     });
     return () => { alive = false; subscription.unsubscribe(); };

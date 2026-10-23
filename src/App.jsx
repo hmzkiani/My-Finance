@@ -452,6 +452,7 @@ function FinanceApp() {
   const [localTransactions, setLocalTransactions] = useState([]);
   const [localRecordsAvailable, setLocalRecordsAvailable] = useState(false);
   const [ready, setReady] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [activePage, setActivePage] = useState(() => screenFromPath(pathname));
   const resolvedTheme = useResolvedTheme(theme);
   const [typeFilter, setTypeFilter] = useState('all');
@@ -466,25 +467,53 @@ function FinanceApp() {
   const closeDialog = useCallback(() => setDialog(null), []);
   const showToast = useCallback(message => setToast(message), []);
   const dismissToast = useCallback(() => setToast(''), []);
+  const retryDataLoad = () => {
+    setStorageError('');
+    setStorageBlocked(false);
+    setReady(false);
+    setLoadAttempt(attempt => attempt + 1);
+  };
 
   useEffect(() => {
     let alive = true;
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      if (!alive) return;
+      timedOut = true;
+      setStorageError('Loading your account is taking longer than expected. Check your connection, then try again.');
+      setStorageBlocked(true);
+      setReady(true);
+    }, 15000);
     Promise.all([
       loadUserTransactions(client, user.id).then(items => ({ items })).catch(error => ({ error })),
       loadTransactions()
     ]).then(([cloud, stored]) => {
-      if (!alive) return;
+      if (!alive || timedOut) return;
       setTransactions(cloud.items || []);
       setLocalTransactions(stored.transactions);
       setLocalRecordsAvailable(stored.transactions.length > 0);
       if (cloud.error) {
         setStorageError(`Could not load account transactions: ${cloud.error.message || 'Check your connection and database setup.'}`);
         setStorageBlocked(true);
+      } else if (stored.error) {
+        setStorageError(stored.error);
+        setStorageBlocked(false);
+      } else {
+        setStorageError('');
+        setStorageBlocked(false);
       }
       setReady(true);
+    }).catch(error => {
+      if (!alive || timedOut) return;
+      setTransactions([]);
+      setStorageError(`Could not open your account data: ${error?.message || 'Check your connection and try again.'}`);
+      setStorageBlocked(true);
+      setReady(true);
+    }).finally(() => {
+      clearTimeout(timeout);
     });
-    return () => { alive = false; };
-  }, [client, user.id]);
+    return () => { alive = false; clearTimeout(timeout); };
+  }, [client, user.id, loadAttempt]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = resolvedTheme;
@@ -597,7 +626,7 @@ function FinanceApp() {
   if (!ready) return <div className="loading-screen" role="status" aria-live="polite"><div className="brand-mark">₨</div><strong>My Finance</strong><span>Opening your private finance space…</span></div>;
   return <div className="app-shell">
     <AppHeader activePage={activePage} onThemeToggle={themeToggle} resolvedTheme={resolvedTheme} onAdd={() => setDialog({ type: 'add' })} />
-    {storageError && <div className="storage-alert" role="alert"><Icon name="info" size={17} />{storageError}<button onClick={() => setStorageError('')} aria-label="Dismiss">×</button></div>}
+    {storageError && <div className="storage-alert" role="alert"><Icon name="info" size={17} /><span>{storageError}</span><div className="storage-alert-actions">{storageBlocked ? <button className="storage-alert-retry" onClick={retryDataLoad}>Try again</button> : <button className="storage-alert-dismiss" onClick={() => setStorageError('')} aria-label="Dismiss">×</button>}</div></div>}
     <main className="main-content" key={activePage}>
       {activePage === 'home' && <Dashboard transactions={transactions} totals={totals} onNavigate={navigate} onAdd={initialType => setDialog({ type: 'add', initialType })} onEdit={openEdit} onDelete={openDelete} />}
       {activePage === 'transactions' && <TransactionsPage transactions={transactions} onEdit={openEdit} onDelete={openDelete} typeFilter={typeFilter} setTypeFilter={setTypeFilter} categoryFilter={categoryFilter} setCategoryFilter={setCategoryFilter} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onReset={resetFilters} onAdd={() => setDialog({ type: 'add' })} />}

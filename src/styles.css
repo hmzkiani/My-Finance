@@ -389,7 +389,13 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .toast button { display: grid; place-items: center; margin-left: auto; padding: 3px; border: 0; color: var(--muted); background: transparent; cursor: pointer; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .storage-alert { max-width: 1120px; display: flex; align-items: center; gap: 8px; margin: 14px auto -16px; padding: 11px 14px; border: 1px solid color-mix(in srgb, var(--rose) 30%, var(--line)); border-radius: 12px; color: var(--rose); background: var(--rose-soft); font-size: 11px; }
-.storage-alert button { margin-left: auto; border: 0; color: inherit; background: transparent; font-size: 20px; cursor: pointer; }
+.storage-alert > span { min-width: 0; flex: 1; }
+.storage-alert-actions { display: flex; align-items: center; margin-left: auto; }
+.storage-alert .storage-alert-retry { min-height: 36px; padding: 0 10px; border: 1px solid currentColor; border-radius: 9px; color: inherit; background: transparent; font-size: 11px; font-weight: 680; cursor: pointer; }
+.storage-alert .storage-alert-dismiss { border: 0; color: inherit; background: transparent; font-size: 20px; cursor: pointer; }
+.app-fatal-error { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 28px max(18px, env(safe-area-inset-right)) 28px max(18px, env(safe-area-inset-left)); color: var(--text); background: var(--bg); text-align: center; }
+.app-fatal-error h1 { margin: 0; font-size: clamp(22px, 5vw, 30px); letter-spacing: -.04em; }
+.app-fatal-error p { max-width: 390px; margin: 0 0 8px; color: var(--muted); font-size: 13px; line-height: 1.65; }
 .loading-screen { position: relative; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; overflow: hidden; color: var(--text); background: radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--emerald) 7%, transparent), transparent 31rem), var(--bg); }
 .loading-screen .brand-mark { margin-bottom: 3px; animation: brand-arrive .38s var(--motion-ease) both; }
 .loading-screen strong { font-size: 16px; }
