@@ -11,6 +11,8 @@ import {
 } from './data.js';
 import { loadTransactions, parseTransactionImport } from './storage.js';
 import { useAuth } from './AuthGate.jsx';
+import { PublicSite } from './PublicSite.jsx';
+import { isPublicSitePath, navigateTo, normalizePathname, screenFromPath, screenPath, useLocationKey } from './routing.js';
 import {
   clearUserTransactions, deleteUserTransaction, loadUserTransactions,
   mergeUserTransactions, saveUserTransaction
@@ -90,8 +92,7 @@ function AppHeader({ activePage, onThemeToggle, resolvedTheme, onAdd }) {
     <header className="topbar">
       <div className="topbar-inner">
         <div className="brand-lockup">
-          <div className="brand-mark" aria-hidden="true">₨</div>
-          <div><span className="brand-name">My Finance</span><span className="brand-caption">PERSONAL FINANCE</span></div>
+          <img className="brand-logo" src={resolvedTheme === 'dark' ? '/brand/my-finance-light.svg' : '/brand/my-finance-dark.svg'} alt="My Finance" width="190" height="42" />
         </div>
         <div className="topbar-actions">
           <div className="page-title"><span>{current?.label || 'Home'}</span><small>{new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</small></div>
@@ -116,9 +117,42 @@ function BottomNav({ activePage, onNavigate }) {
 function StatCard({ label, amount, detail, tone = 'neutral', featured = false, icon }) {
   return <article className={`stat-card ${featured ? 'featured' : ''}`}>
     <div className="stat-topline"><span>{label}</span><span className={`stat-icon ${tone}`}><Icon name={icon} size={18} /></span></div>
-    <strong className={`stat-value ${tone}`}>{formatPKR(amount)}</strong>
+    <strong className={`stat-value ${tone}`} aria-label={`${label}: ${formatPKR(amount)}`}><AnimatedPKR amount={amount} /></strong>
     <span className="stat-detail">{detail}</span>
   </article>;
+}
+
+function AnimatedPKR({ amount }) {
+  const target = Number.isFinite(Number(amount)) ? Number(amount) : 0;
+  const [displayAmount, setDisplayAmount] = useState(0);
+  const currentAmount = useRef(0);
+
+  useEffect(() => {
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion || typeof window.requestAnimationFrame !== 'function') {
+      currentAmount.current = target;
+      setDisplayAmount(target);
+      return undefined;
+    }
+
+    const from = currentAmount.current;
+    const startedAt = performance.now();
+    const duration = 520;
+    let frame = 0;
+    const animate = now => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - ((1 - progress) ** 3);
+      const next = from + (target - from) * eased;
+      currentAmount.current = next;
+      setDisplayAmount(next);
+      if (progress < 1) frame = window.requestAnimationFrame(animate);
+      else currentAmount.current = target;
+    };
+    frame = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(frame);
+  }, [target]);
+
+  return <span aria-hidden="true">{formatPKR(displayAmount)}</span>;
 }
 
 function SummaryCards({ transactions, totals }) {
@@ -399,12 +433,26 @@ async function exportBackup(transactions) {
 }
 
 export function App() {
+  const { user, theme, setTheme } = useAuth();
+  const location = useLocationKey();
+  const path = normalizePathname(location.split('?')[0]);
+  const isRecoveryFlow = new URLSearchParams(location.split('?')[1] || '').get('flow') === 'recovery';
+  if (!Capacitor.isNativePlatform() && isPublicSitePath(path) && !isRecoveryFlow) {
+    return <PublicSite theme={theme} setTheme={setTheme} user={user} />;
+  }
+  return <FinanceApp />;
+}
+
+function FinanceApp() {
   const { client, user, signOut, theme, setTheme } = useAuth();
+  const location = useLocationKey();
+  const pathname = normalizePathname(location.split('?')[0]);
+  const native = Capacitor.isNativePlatform();
   const [transactions, setTransactions] = useState([]);
   const [localTransactions, setLocalTransactions] = useState([]);
   const [localRecordsAvailable, setLocalRecordsAvailable] = useState(false);
   const [ready, setReady] = useState(false);
-  const [activePage, setActivePage] = useState('home');
+  const [activePage, setActivePage] = useState(() => screenFromPath(pathname));
   const resolvedTheme = useResolvedTheme(theme);
   const [typeFilter, setTypeFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -442,6 +490,10 @@ export function App() {
     document.documentElement.dataset.theme = resolvedTheme;
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', resolvedTheme === 'dark' ? '#090b0a' : '#f5f5f2');
   }, [resolvedTheme]);
+
+  useEffect(() => {
+    if (!native) setActivePage(screenFromPath(pathname));
+  }, [native, pathname]);
 
   const changeTheme = setTheme;
   const themeToggle = () => changeTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
@@ -537,11 +589,12 @@ export function App() {
 
   const navigate = page => {
     if (page === 'add') { setDialog({ type: 'add' }); return; }
-    setActivePage(page);
+    if (native) setActivePage(page);
+    else navigateTo(screenPath(page));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (!ready) return <div className="loading-screen"><div className="brand-mark">₨</div><strong>My Finance</strong><span>Opening your private finance space…</span></div>;
+  if (!ready) return <div className="loading-screen" role="status" aria-live="polite"><div className="brand-mark">₨</div><strong>My Finance</strong><span>Opening your private finance space…</span></div>;
   return <div className="app-shell">
     <AppHeader activePage={activePage} onThemeToggle={themeToggle} resolvedTheme={resolvedTheme} onAdd={() => setDialog({ type: 'add' })} />
     {storageError && <div className="storage-alert" role="alert"><Icon name="info" size={17} />{storageError}<button onClick={() => setStorageError('')} aria-label="Dismiss">×</button></div>}

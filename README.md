@@ -2,6 +2,8 @@
 
 My Finance is a React/Vite finance tracker packaged with Capacitor for Android. It uses **email and password authentication only**. There are no Google, OAuth, or social sign-in flows. Signed-in transaction data is stored in Supabase Postgres and protected by row-level security (RLS). Existing device/browser records remain available locally until you explicitly copy them into your account.
 
+The browser version includes a public website at `/`, `/about`, `/contact`, `/blog`, `/blog/:article-slug`, `/privacy-policy`, and `/terms-and-conditions`. The existing finance application remains available after sign-in at `/app`, `/transactions`, `/reports`, and `/settings`; `/login`, `/signup`, and `/forgot-password` open the existing Supabase auth forms. Android continues to open the existing finance app directly. Routes use the browser History API; no router dependency is required.
+
 ## Finance features
 
 - Dashboard balance, income, expenses, savings rate, status, insights, recent transactions, and six-month trend.
@@ -14,6 +16,10 @@ My Finance is a React/Vite finance tracker packaged with Capacitor for Android. 
 - JSON backup export and validated import. Imports merge records, skip duplicate IDs, and ask before writing.
 - Local theme preference and secure native session persistence on Android. The Supabase JavaScript client stores the web preview session in browser storage.
 - Android email-link callback, back handling, mobile keyboard resizing, safe-area spacing, and bundled app assets.
+- Public, responsive Home, About, Contact, Blog, Privacy Policy, and Terms pages with theme-aware shared navigation.
+- Eight original personal-finance guides with search/category filters, article pages, breadcrumbs, related guides, and previous/next links.
+- Theme-matched local SVG logo variants in the website, auth, and finance headers plus a matching SVG favicon.
+- Unique page titles/descriptions and Open Graph metadata; Vite also generates route-specific metadata, canonical links, robots.txt, and sitemap.xml when the production domain is configured.
 
 New installations start with an empty transaction list. The old HTML source created example entries automatically; these are intentionally not inserted into real accounts.
 
@@ -21,7 +27,7 @@ New installations start with an empty transaction list. The old HTML source crea
 
 Use the existing My Finance Supabase project and its existing transaction table, accounts, and RLS policies. Do not create a replacement project or rerun a schema migration during web deployment. The project URL and publishable key are read from `.env.local` for local builds and from Vercel environment variables for hosted builds. Supabase's publishable key is intended for client-side use when RLS is enabled; **never put a `service_role` or secret key in Vite variables or frontend code**. [Supabase RLS guidance](https://supabase.com/docs/guides/database/postgres/row-level-security)
 
-1. Create a Supabase project and open **Authentication → Sign In / Providers**. Enable **Email**. Leave Google and every other social provider disabled; My Finance has no social-login code. Phone and anonymous sign-in are not used.
+1. Open the **existing My Finance Supabase project** and open **Authentication → Sign In / Providers**. Enable **Email**. Leave Google and every other social provider disabled; My Finance has no social-login code. Phone and anonymous sign-in are not used.
 2. In **Authentication → URL Configuration**, keep any working URLs and add these redirect URLs for local development and Android:
 
    ```text
@@ -33,11 +39,11 @@ Use the existing My Finance Supabase project and its existing transaction table,
    Email confirmation and recovery links return to the current web origin in a browser and to the Android app callback on-device. Capacitor handles the Android deep link using its app URL event. The production Site URL and Vercel redirect entries are described in the deployment section below. [Capacitor deep links](https://capacitorjs.com/docs/guides/deep-links)
 3. In **Authentication → Email**, choose whether **Confirm email** is enabled. With it enabled, new accounts see a verification notice and cannot sign in until Supabase confirms the email. Supabase uses the requested email redirect URL for confirmation and password reset. [Supabase sign-up](https://supabase.com/docs/reference/javascript/auth-signup) · [Password reset email](https://supabase.com/docs/reference/javascript/auth-resetpasswordforemail)
 4. The migration at [`supabase/migrations/20261023000100_finance_transactions.sql`](supabase/migrations/20261023000100_finance_transactions.sql) is for a first-time installation only. This Vercel deployment uses the existing database and RLS policies; do not rerun the migration or reset existing data as part of deployment.
-5. Copy `.env.example` to `.env.local` in the project root. Replace the placeholders with your own **Project URL** and **Publishable key** from **Project Settings → API**. A legacy anon key is also accepted, but the preferred variable is `VITE_SUPABASE_PUBLISHABLE_KEY`.
+5. Keep the existing `.env.local` in the project root. If setting up a fresh checkout where it is absent, copy `.env.example` to `.env.local` and enter the existing project's **Project URL** and **Publishable key** from **Project Settings → API**. A legacy anon key is also accepted, but the preferred variable is `VITE_SUPABASE_PUBLISHABLE_KEY`.
 
    ```powershell
-   Copy-Item .env.example .env.local
-   # Edit .env.local and insert your own Supabase URL and publishable key.
+   if (-not (Test-Path .env.local)) { Copy-Item .env.example .env.local }
+   # Edit only if needed; retain your current project's URL and publishable key.
    ```
 
    Do not put database passwords, `service_role`, or `sb_secret_…` keys in `.env.local`. Vite embeds `VITE_` variables into the app bundle, so only the publishable/anon key is suitable there. The app rejects recognizable service-role keys at startup.
@@ -56,6 +62,37 @@ npm run dev -- --host 127.0.0.1
 ```
 
 Open [http://127.0.0.1:5173/](http://127.0.0.1:5173/). If Supabase is not configured, the app explains how to provide the project URL and publishable key. The web preview needs an internet connection to use Supabase Auth and account data.
+
+## Public website, blog, and contact
+
+The Home and About pages describe only capabilities confirmed in the app. The Blog contains eight original guides; examples are explicitly illustrative and the articles do not promise financial outcomes. Article content is educational, not individual advice. No ads or advertising scripts are included, and AdSense approval is not promised. The Privacy Policy and Terms show an owner-review notice: provide the legal operator name, governing jurisdiction, and effective date and have the final copy reviewed before treating it as legal copy. The supplied contact email is shown on those pages.
+
+### Add the eight article images
+
+The eight supplied images have been resized and optimized as WebP files and are included in this exact folder:
+
+```text
+public/images/blog/
+```
+
+Each article uses its own supplied image in the Blog card and article page:
+
+| Article | Filename |
+| --- | --- |
+| Monthly budget guide | `monthly-budget-guide.webp` |
+| Saving money tips | `saving-money-tips.webp` |
+| Needs vs. wants | `needs-vs-wants.webp` |
+| Emergency fund guide | `emergency-fund-guide.webp` |
+| Tracking income and expenses | `track-income-expenses.webp` |
+| Budgeting mistakes | `budgeting-mistakes.webp` |
+| Beginner financial goals | `financial-goals.webp` |
+| Monthly spending review | `monthly-spending-review.webp` |
+
+The source images have been matched by subject, resized to fit within 1600×1200 while preserving aspect ratio, and saved as WebP at quality 84. Each source is used for one article only. Logo assets are `public/brand/my-finance-dark.svg` (for a light surface) and `public/brand/my-finance-light.svg` (for a dark surface); the favicon is `public/favicon.svg`.
+
+The Contact Us page displays **askhmzkiani@gmail.com** with a `mailto:` link. The validated contact form does not claim delivery unless a server endpoint is configured and acknowledges the submission. Without `VITE_CONTACT_FORM_ENDPOINT`, form data is not transmitted or saved. Do not put email-provider secrets in a `VITE_` variable.
+
+To enable form delivery, implement an owner-controlled HTTPS endpoint that validates and rate-limits submissions, handles spam protection, and forwards messages through a server-side provider. Set the optional public endpoint URL as `VITE_CONTACT_FORM_ENDPOINT` in the local/Vercel build environment. The endpoint must allow the website origin with CORS. Do not place SMTP credentials, provider secrets, or service-role keys in a `VITE_` variable. The frontend sends only the four submitted form fields to this configured endpoint; it does not save them to the finance database. Update the privacy policy with the endpoint operator and retention details before enabling it.
 
 ## Deploy this existing app to Vercel
 
@@ -85,12 +122,15 @@ git push -u origin main
    ```text
    VITE_SUPABASE_URL
    VITE_SUPABASE_PUBLISHABLE_KEY
+   VITE_PUBLIC_SITE_URL
    ```
 
-   Enter the existing project's URL and publishable key privately in Vercel. The browser bundle necessarily contains the publishable key; never configure a `service_role` or `sb_secret_…` key. The existing RLS policies must continue to enforce per-user access.
+   Enter the existing project's URL and publishable key privately in Vercel. Set `VITE_PUBLIC_SITE_URL` to the actual production HTTPS origin assigned to this Vercel project (or the configured custom domain), with no path. The build uses that value for page canonical links and `sitemap.xml`; if it is absent, it intentionally skips canonical links and the sitemap rather than emitting a localhost or guessed domain. Redeploy after setting it. The browser bundle necessarily contains the publishable key; never configure a `service_role` or `sb_secret_…` key. The existing RLS policies must continue to enforce per-user access.
 4. Deploy. Later Git pushes to the connected branch trigger Vercel builds. When changing a Vercel environment variable, redeploy so the Vite build picks up its value.
 
 Vercel setup instructions: [Vite on Vercel](https://vercel.com/docs/frameworks/frontend/vite) · [Vercel project configuration](https://vercel.com/docs/project-configuration).
+
+The production build emits route-specific HTML metadata for the public pages and articles, plus `robots.txt`. When `VITE_PUBLIC_SITE_URL` is set to the real production origin, it also adds canonical links and a sitemap containing public routes. Add the domain in Vercel first, then use that actual HTTPS origin; never set this variable to localhost for production.
 
 ### Allow the web domain in existing Supabase Auth settings
 

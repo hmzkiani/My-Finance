@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /app
+Disallow: /transactions
+Disallow: /reports
+Disallow: /settings
+Disallow: /login
+Disallow: /signup
+Disallow: /forgot-password

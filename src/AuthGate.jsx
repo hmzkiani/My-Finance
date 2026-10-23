@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { THEME_KEY } from './data.js';
 import { loadTheme, saveTheme } from './storage.js';
 import { AUTH_REDIRECT_URL, getAuthRedirectUrl, supabase, supabaseConfigError } from './supabase.js';
+import { AUTH_PATH_MODES, isPublicSitePath, authModeFromLocation, navigateTo, useLocationKey } from './routing.js';
 
 const AuthContext = createContext(null);
 
@@ -80,7 +81,15 @@ function AuthPage({ mode, setMode, resolvedTheme, onThemeToggle, error, clearErr
   }, [error, mode]);
 
   const changeMode = next => {
-    if (mode === 'recovery' && next === 'login') onRecoveryComplete();
+    if (mode === 'recovery' && next === 'login') {
+      clearError();
+      setFormError('');
+      setNotice('');
+      setPassword('');
+      setConfirmPassword('');
+      onRecoveryComplete();
+      return;
+    }
     clearError();
     setFormError('');
     setNotice('');
@@ -157,11 +166,13 @@ function AuthPage({ mode, setMode, resolvedTheme, onThemeToggle, error, clearErr
   };
   const [title, subtitle] = titles[mode] || titles.login;
   const showEmail = mode !== 'recovery';
+  const brandLockup = <div className="brand-lockup"><img className="brand-logo" src={resolvedTheme === 'dark' ? '/brand/my-finance-light.svg' : '/brand/my-finance-dark.svg'} alt="My Finance" width="190" height="42" /></div>;
+  const websiteBrand = Capacitor.isNativePlatform() ? brandLockup : <a className="auth-brand-home" href="/" onClick={event => { event.preventDefault(); navigateTo('/'); }}>{brandLockup}</a>;
 
   return <div className="auth-shell">
     <header className="auth-topbar">
-      <div className="brand-lockup"><div className="brand-mark" aria-hidden="true">₨</div><div><span className="brand-name">My Finance</span><span className="brand-caption">PRIVATE FINANCE</span></div></div>
-      <button className="icon-button theme-toggle" onClick={onThemeToggle} aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} theme`} title={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} theme`}>{resolvedTheme === 'dark' ? <SunMark /> : <MoonMark />}</button>
+      {websiteBrand}
+      <div className="auth-topbar-actions">{!Capacitor.isNativePlatform() && <a className="auth-home-link" href="/" onClick={event => { event.preventDefault(); navigateTo('/'); }}>Website</a>}<button className="icon-button theme-toggle" onClick={onThemeToggle} aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} theme`} title={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} theme`}>{resolvedTheme === 'dark' ? <SunMark /> : <MoonMark />}</button></div>
     </header>
 
     <main className="auth-layout">
@@ -207,7 +218,10 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [themeReady, setThemeReady] = useState(false);
-  const [mode, setMode] = useState('login');
+  const location = useLocationKey();
+  const currentUrl = new URL(location, window.location.origin);
+  const recoveryRequested = currentUrl.searchParams.get('flow') === 'recovery';
+  const [mode, setMode] = useState(() => authModeFromLocation(currentUrl.pathname, currentUrl.search));
   const [authError, setAuthError] = useState('');
   const [theme, setTheme] = useState(getInitialTheme);
   const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true);
@@ -234,8 +248,8 @@ export function AuthProvider({ children }) {
   }, [resolvedTheme, themeReady]);
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('flow') === 'recovery') setMode('recovery');
-  }, []);
+    setMode(authModeFromLocation(currentUrl.pathname, currentUrl.search));
+  }, [location]);
 
   useEffect(() => {
     if (!supabase) { setAuthReady(true); return undefined; }
@@ -284,6 +298,11 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (Capacitor.isNativePlatform() || !session || recoveryRequested || !AUTH_PATH_MODES[normalizePathname(currentUrl.pathname)]) return;
+    navigateTo('/app', { replace: true });
+  }, [session, location]);
+
   const signOut = useCallback(async () => {
     if (!supabase) return;
     const { error } = await supabase.auth.signOut({ scope: 'local' });
@@ -291,11 +310,15 @@ export function AuthProvider({ children }) {
   }, []);
 
   const finishRecovery = useCallback(() => {
-    const url = new URL(window.location.href);
-    url.searchParams.delete('flow');
-    window.history.replaceState({}, '', url.toString());
     setMode('login');
-  }, []);
+    if (Capacitor.isNativePlatform()) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('flow');
+      window.history.replaceState({}, '', url.toString());
+    } else {
+      navigateTo(session ? '/app' : '/login', { replace: true });
+    }
+  }, [session]);
 
   const changeAuthTheme = useCallback(async next => {
     setTheme(next);
@@ -308,10 +331,22 @@ export function AuthProvider({ children }) {
   }), [session, signOut, theme, changeAuthTheme]);
   if (!authReady || !themeReady) return <div className="loading-screen"><div className="brand-mark">₨</div><strong>My Finance</strong><span>{themeReady ? 'Checking your secure session…' : 'Preparing your preferred theme…'}</span></div>;
 
+  const publicSitePage = !Capacitor.isNativePlatform()
+    && isPublicSitePath(currentUrl.pathname)
+    && !recoveryRequested;
+  const showAuthentication = recoveryRequested || (!publicSitePage && (supabaseConfigError || !session));
+
   return <AuthContext.Provider value={value}>
-    {(!session || mode === 'recovery' || supabaseConfigError) ? <AuthPage
+    {showAuthentication ? <AuthPage
       mode={mode}
-      setMode={next => { setMode(next); setAuthError(''); }}
+      setMode={next => {
+        setMode(next);
+        setAuthError('');
+        if (!Capacitor.isNativePlatform()) {
+          const path = next === 'recovery' ? '/?flow=recovery' : ({ login: '/login', signup: '/signup', forgot: '/forgot-password' }[next] || '/login');
+          navigateTo(path);
+        }
+      }}
       resolvedTheme={resolvedTheme}
       onThemeToggle={() => { void changeAuthTheme(resolvedTheme === 'dark' ? 'light' : 'dark'); }}
       error={authError}
