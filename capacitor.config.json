@@ -1,0 +1,17 @@
+{
+  "appId": "com.hmzkiani.myfinance",
+  "appName": "My Finance",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#0c1110",
+    "allowMixedContent": false,
+    "captureInput": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#0c1110",
+      "showSpinner": false
+    }
+  }
+}

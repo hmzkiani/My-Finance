@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <rect width="1080" height="1920" fill="#0c1110"/>
+  <circle cx="540" cy="810" r="154" fill="#153b2c" stroke="#47ce91" stroke-width="16"/>
+  <path d="M635 720H455c-62 0-91 34-91 71s29 68 91 68h108c61 0 91 29 91 67s-30 70-91 70H378M502 720v276" fill="none" stroke="#f3fff8" stroke-linecap="round" stroke-linejoin="round" stroke-width="19"/>
+  <path d="m462 921 41-39 36 20 74-79" fill="none" stroke="#47ce91" stroke-linecap="round" stroke-linejoin="round" stroke-width="14"/>
+  <path d="M597 823h16v16" fill="none" stroke="#47ce91" stroke-linecap="round" stroke-linejoin="round" stroke-width="14"/>
+  <text x="540" y="1060" text-anchor="middle" fill="#f3fff8" font-family="Arial, sans-serif" font-size="55" font-weight="700">My Finance</text>
+  <text x="540" y="1110" text-anchor="middle" fill="#82918a" font-family="Arial, sans-serif" font-size="20" letter-spacing="4">YOUR MONEY, IN FOCUS</text>
+</svg>
