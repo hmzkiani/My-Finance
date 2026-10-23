@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { authModeFromLocation, AUTH_PATH_MODES, isPublicSitePath, normalizePathname, PUBLIC_SITE_PATHS, screenFromPath, screenPath } from '../src/routing.js';
@@ -41,6 +41,14 @@ test('email and password entry routes resolve the expected auth views', () => {
   assert.deepEqual(AUTH_PATH_MODES, { '/login': 'login', '/signup': 'signup', '/forgot-password': 'forgot' });
   assert.equal(authModeFromLocation('/signup'), 'signup');
   assert.equal(authModeFromLocation('/', '?flow=recovery'), 'recovery');
+});
+
+test('the auth redirect binds the pathname normalizer it invokes after sign-in', () => {
+  const authGate = readFileSync(new URL('../src/AuthGate.jsx', import.meta.url), 'utf8');
+  const routeImport = authGate.match(/import\s*\{([^}]+)\}\s*from\s*['"]\.\/routing\.js['"]/);
+  assert.ok(routeImport, 'AuthGate imports its route helpers');
+  assert.match(routeImport[1], /\bnormalizePathname\b/, 'AuthGate imports normalizePathname');
+  assert.match(authGate, /AUTH_PATH_MODES\[normalizePathname\(currentUrl\.pathname\)\]/, 'the redirect checks the normalized auth route');
 });
 
 test('contact form requires all fields and validates email before delivery', () => {

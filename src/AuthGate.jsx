@@ -4,7 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { THEME_KEY } from './data.js';
 import { loadTheme, saveTheme } from './storage.js';
 import { AUTH_REDIRECT_URL, getAuthRedirectUrl, supabase, supabaseConfigError } from './supabase.js';
-import { AUTH_PATH_MODES, isPublicSitePath, authModeFromLocation, navigateTo, useLocationKey } from './routing.js';
+import { AUTH_PATH_MODES, isPublicSitePath, authModeFromLocation, navigateTo, normalizePathname, useLocationKey } from './routing.js';
 
 const AuthContext = createContext(null);
 
